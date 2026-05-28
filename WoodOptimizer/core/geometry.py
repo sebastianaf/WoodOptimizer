@@ -64,7 +64,7 @@ def create_part(
     box.Length = length
     box.Width = thickness    # Y = espesor
     box.Height = width       # Z = ancho
-    box.Placement.Base = _FC.Vector(x, y, z)
+    box.Placement = _FC.Placement(_FC.Vector(x, y, z), _FC.Rotation())
     doc.recompute()
     return box
 
@@ -93,12 +93,16 @@ def update_part(
         obj.Width = thickness
     if width is not None:
         obj.Height = width
-    if x is not None:
-        obj.Placement.Base.x = x
-    if y is not None:
-        obj.Placement.Base.y = y
-    if z is not None:
-        obj.Placement.Base.z = z
+    if x is not None or y is not None or z is not None:
+        base = obj.Placement.Base
+        obj.Placement = _FC.Placement(
+            _FC.Vector(
+                x if x is not None else base.x,
+                y if y is not None else base.y,
+                z if z is not None else base.z,
+            ),
+            obj.Placement.Rotation,
+        )
 
     doc.recompute()
     return obj
