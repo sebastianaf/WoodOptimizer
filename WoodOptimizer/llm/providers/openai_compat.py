@@ -7,14 +7,18 @@ from .base import BaseProvider, LLMResponse, ToolCall
 
 class OpenAICompatProvider(BaseProvider):
     """
-    Proveedor para cualquier API compatible con OpenAI /v1/chat/completions.
-    Compatible con: OpenAI, Groq, LM Studio, Together AI, Mistral, etc.
-    Requiere api_key para proveedores en la nube, vacío para locales (LM Studio).
+    Provider for any OpenAI-compatible API (/v1/chat/completions).
+    Works with: OpenAI, DeepSeek, Groq, LM Studio, Together AI, Mistral, etc.
     """
 
     def __init__(self, url: str = "https://api.openai.com", api_key: str = ""):
-        self.url = url.rstrip("/")
+        # Strip trailing /v1 so we never double it when building endpoints
+        base = url.rstrip("/")
+        self.url = base[:-3] if base.endswith("/v1") else base
         self.api_key = api_key
+
+    def _endpoint(self, path: str) -> str:
+        return f"{self.url}/v1{path}"
 
     def complete(
         self,
@@ -33,9 +37,9 @@ class OpenAICompatProvider(BaseProvider):
             payload["tool_choice"] = "auto"
 
         try:
-            data = self._post(f"{self.url}/v1/chat/completions", payload)
+            data = self._post(self._endpoint("/chat/completions"), payload)
         except Exception as e:
-            return LLMResponse(text="", error=str(e))
+            return LLMResponse(error=str(e))
 
         choice = (data.get("choices") or [{}])[0]
         msg = choice.get("message", {})
@@ -54,7 +58,7 @@ class OpenAICompatProvider(BaseProvider):
 
     def list_models(self) -> list[str]:
         try:
-            data = self._get(f"{self.url}/v1/models")
+            data = self._get(self._endpoint("/models"))
             return sorted(m["id"] for m in data.get("data", []))
         except Exception:
             return []
