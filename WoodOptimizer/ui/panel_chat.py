@@ -147,11 +147,13 @@ class ChatPanel(QtWidgets.QWidget):
         self._rebuild_client()
 
     def _save_config(self):
-        from ..llm.config import save_config, ProviderConfig
+        from ..llm.config import save_config, load_config, ProviderConfig
+        existing = load_config()
         save_config(ProviderConfig(
             provider=self._cmb_provider.currentText(),
             url=self._txt_url.text().strip(),
             model=self._cmb_model.currentText().strip(),
+            api_key=existing.api_key,
         ))
         self._rebuild_client()
 

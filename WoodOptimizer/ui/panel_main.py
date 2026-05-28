@@ -14,6 +14,7 @@ except ImportError:
 from .panel_chat import ChatPanel
 from .panel_cutplan import CutPlanPanel
 from .panel_remnants import RemnantsPanel
+from .panel_settings import SettingsPanel
 
 
 class MainPanel(QtWidgets.QDockWidget):
@@ -27,10 +28,13 @@ class MainPanel(QtWidgets.QDockWidget):
         self._tab_cutplan = CutPlanPanel()
         self._tab_remnants = RemnantsPanel()
 
+        self._tab_settings = SettingsPanel()
+
         tabs = QtWidgets.QTabWidget()
         tabs.addTab(ChatPanel(), "Asistente")
         tabs.addTab(self._tab_cutplan, "Plan de corte")
         tabs.addTab(self._tab_remnants, "Retales")
+        tabs.addTab(self._tab_settings, "Configuracion")
 
         # Actualizar diagrama al cambiar a esa pestaña
         tabs.currentChanged.connect(self._on_tab_changed)
