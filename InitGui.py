@@ -6,7 +6,11 @@ import os
 import sys
 
 # Asegurar que el workbench esté en el path de Python
-_wb_path = os.path.dirname(os.path.abspath(__file__))
+try:
+    _wb_path = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    import FreeCAD as _fc
+    _wb_path = os.path.join(_fc.getUserAppDataDir(), "Mod", "WoodOptimizer")
 if _wb_path not in sys.path:
     sys.path.insert(0, _wb_path)
 
