@@ -25,25 +25,27 @@ class MainPanel(QtWidgets.QDockWidget):
         self.setObjectName("WoodOptimizerPanel")
         self.setMinimumWidth(420)
 
-        self._tab_cutplan = CutPlanPanel()
+        self._tab_chat     = ChatPanel()
+        self._tab_cutplan  = CutPlanPanel()
         self._tab_remnants = RemnantsPanel()
-
         self._tab_settings = SettingsPanel()
 
         tabs = QtWidgets.QTabWidget()
-        tabs.addTab(ChatPanel(), "Asistente")
-        tabs.addTab(self._tab_cutplan, "Plan de corte")
-        tabs.addTab(self._tab_remnants, "Retales")
-        tabs.addTab(self._tab_settings, "Configuracion")
+        tabs.addTab(self._tab_chat,     "Assistant")
+        tabs.addTab(self._tab_cutplan,  "Cut plan")
+        tabs.addTab(self._tab_remnants, "Offcuts")
+        tabs.addTab(self._tab_settings, "Settings")
 
-        # Actualizar diagrama al cambiar a esa pestaña
         tabs.currentChanged.connect(self._on_tab_changed)
 
         self.setWidget(tabs)
         self._tabs = tabs
 
     def _on_tab_changed(self, index: int):
-        if self._tabs.widget(index) is self._tab_cutplan:
+        widget = self._tabs.widget(index)
+        if widget is self._tab_chat:
+            self._tab_chat.reload_client()
+        elif widget is self._tab_cutplan:
             self._tab_cutplan.refresh()
 
 

@@ -1,6 +1,7 @@
 """
 Chat panel — AI design assistant.
-Controls: Send, Stop, Clear, multiline input, active model indicator.
+Controls: Send, Stop, Clear, multiline input.
+Config lives in the Settings tab; this panel just reads it on every tab switch.
 """
 from __future__ import annotations
 
@@ -68,7 +69,7 @@ class ChatPanel(QtWidgets.QWidget):
         self._pending_user_msg = ""
         self._current_assistant_text = ""
         self._build_ui()
-        self._reload_client()
+        self.reload_client()
 
     # ── Build UI ──────────────────────────────────────────────────────────────
 
@@ -76,21 +77,6 @@ class ChatPanel(QtWidgets.QWidget):
         root = QtWidgets.QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(4)
-
-        # ── Top bar: model indicator + Clear ─────────────────────────────────
-        top = QtWidgets.QHBoxLayout()
-
-        self._lbl_model = QtWidgets.QLabel("Model: —")
-        self._lbl_model.setStyleSheet("color: #555; font-size: 10px;")
-        top.addWidget(self._lbl_model, stretch=1)
-
-        btn_clear = QtWidgets.QPushButton("Clear")
-        btn_clear.setFixedWidth(54)
-        btn_clear.setToolTip("Clear conversation history")
-        btn_clear.clicked.connect(self._clear)
-        top.addWidget(btn_clear)
-
-        root.addLayout(top)
 
         # ── Chat display ──────────────────────────────────────────────────────
         self._chat_display = QtWidgets.QTextEdit()
@@ -114,6 +100,12 @@ class ChatPanel(QtWidgets.QWidget):
         # ── Button row ────────────────────────────────────────────────────────
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
+
+        btn_clear = QtWidgets.QPushButton("Clear")
+        btn_clear.setFixedWidth(54)
+        btn_clear.setToolTip("Clear conversation history")
+        btn_clear.clicked.connect(self._clear)
+        btn_row.addWidget(btn_clear)
 
         self._btn_stop = QtWidgets.QPushButton("Stop")
         self._btn_stop.setFixedWidth(54)
@@ -148,7 +140,8 @@ class ChatPanel(QtWidgets.QWidget):
 
     # ── Client ────────────────────────────────────────────────────────────────
 
-    def _reload_client(self):
+    def reload_client(self):
+        """Rebuild the LLM client from saved config. Called by MainPanel on tab switch."""
         from ..llm.config import load_config
         from ..llm.client import LLMClient
         from ..llm.providers.ollama import OllamaProvider
@@ -161,14 +154,6 @@ class ChatPanel(QtWidgets.QWidget):
             provider = OpenAICompatProvider(url=cfg.url, api_key=cfg.api_key)
         self._client = LLMClient(provider=provider, model=cfg.model)
 
-        label = f"{cfg.provider} / {cfg.model}" if cfg.model else cfg.provider
-        self._lbl_model.setText(f"Model: {label}")
-
-    def showEvent(self, event):
-        """Reload client config every time the tab becomes visible."""
-        super().showEvent(event)
-        self._reload_client()
-
     # ── Actions ───────────────────────────────────────────────────────────────
 
     def _send(self):
@@ -177,7 +162,7 @@ class ChatPanel(QtWidgets.QWidget):
             return
 
         if self._client is None:
-            self._reload_client()
+            self.reload_client()
 
         self._pending_user_msg = text
         self._txt_input.clear()
