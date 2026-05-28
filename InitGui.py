@@ -17,16 +17,15 @@ if _wb_path not in sys.path:
 import FreeCAD
 import FreeCADGui as Gui
 
-_icon_path = os.path.join(_wb_path, "WoodOptimizer", "icons")
-_MCP_PORT  = 7891
 
 
 class WoodOptimizerWorkbench(Gui.Workbench):
     """Workbench principal de WoodOptimizer."""
 
-    MenuText = "WoodOptimizer"
-    ToolTip  = "Optimizador de corte de madera con asistente IA"
-    Icon     = ""
+    MenuText  = "WoodOptimizer"
+    ToolTip   = "Optimizador de corte de madera con asistente IA"
+    Icon      = ""
+    _MCP_PORT = 7891
 
     def Initialize(self):
         """Llamado una sola vez al registrar el workbench."""
@@ -50,7 +49,7 @@ class WoodOptimizerWorkbench(Gui.Workbench):
         self._sync_document()
         self._start_mcp()
         FreeCAD.Console.PrintMessage(
-            f"[WoodOptimizer] Servidor MCP activo en puerto {_MCP_PORT}.\n"
+            f"[WoodOptimizer] Servidor MCP activo en puerto {self._MCP_PORT}.\n"
         )
 
     def Deactivated(self):
@@ -74,7 +73,7 @@ class WoodOptimizerWorkbench(Gui.Workbench):
     def _start_mcp(self):
         try:
             from WoodOptimizer.mcp.server import start_mcp_server
-            start_mcp_server(port=_MCP_PORT)
+            start_mcp_server(port=self._MCP_PORT)
         except Exception as e:
             FreeCAD.Console.PrintWarning(f"[WoodOptimizer] Error al arrancar MCP: {e}\n")
 
