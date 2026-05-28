@@ -1,0 +1,33 @@
+{
+  "name": "WoodOptimizer",
+  "version": "1.0.0",
+  "description": "Optimizador de corte 2D para muebles de melamina con asistente IA (Ollama/OpenAI-compat) y servidor MCP embebido.",
+  "author": "WoodOptimizer contributors",
+  "maintainer": "WoodOptimizer contributors",
+  "license": "LGPL-2.1-or-later",
+  "icon": "WoodOptimizer/icons/workbench.svg",
+  "freecad_min": "0.21",
+  "python_min": "3.9",
+  "tags": ["woodworking", "CNC", "optimization", "melamina", "guillotine", "bin-packing", "AI", "MCP"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woodoptimizer/wood-optimizer-wb"
+  },
+  "dependencies": {
+    "python": [
+      "mcp[cli]>=1.0",
+      "reportlab>=3.6"
+    ]
+  },
+  "content": {
+    "workbench": [
+      {
+        "name": "WoodOptimizer",
+        "description": "Optimizador de corte de madera con asistente IA y plan de corte visual.",
+        "classname": "WoodOptimizerWorkbench",
+        "subdirectory": ".",
+        "icon": "WoodOptimizer/icons/workbench.svg"
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.ruff_cache/
+*.zip
+refs/
+woodoptimizer_cutplan.pdf
+.woodoptimizer_config.json
+.woodoptimizer_remnants.json

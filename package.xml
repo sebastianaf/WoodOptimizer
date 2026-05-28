@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>WoodOptimizer</name>
+  <description>Optimizador de corte 2D para muebles de melamina con asistente IA local (Ollama / OpenAI-compat) y servidor MCP embebido. Algoritmo guillotine BFD port de OpenCutList. Exporta planes de corte a PDF, CSV y JSON.</description>
+  <version>1.0.0</version>
+  <date>2026-05-27</date>
+  <author email="">WoodOptimizer contributors</author>
+  <maintainer email="">WoodOptimizer contributors</maintainer>
+  <url type="repository" branch="main">https://github.com/woodoptimizer/wood-optimizer-wb</url>
+  <url type="readme">https://github.com/woodoptimizer/wood-optimizer-wb/blob/main/README.md</url>
+  <license file="LICENSE">LGPL-2.1-or-later</license>
+  <icon>WoodOptimizer/icons/workbench.svg</icon>
+
+  <content>
+    <workbench>
+      <classname>WoodOptimizerWorkbench</classname>
+      <subdirectory>./</subdirectory>
+      <description>Optimizador de corte de madera con asistente IA y diagrama visual del plan de corte.</description>
+    </workbench>
+  </content>
+
+  <tag>woodworking</tag>
+  <tag>melamina</tag>
+  <tag>optimization</tag>
+  <tag>bin-packing</tag>
+  <tag>AI</tag>
+  <tag>MCP</tag>
+  <tag>Ollama</tag>
+</package>
