@@ -1,78 +1,96 @@
 # WoodOptimizer
 
-Workbench para FreeCAD que optimiza el corte de tableros de melamina y asiste el diseño de muebles mediante IA local.
+FreeCAD workbench for optimizing melamine board cuts and AI-assisted furniture design.
 
-## Características
+## Features
 
-- **Asistente IA de diseño** — chat con Ollama o cualquier API compatible con OpenAI (Groq, LM Studio, etc.). Sin dependencia de Claude ni servicios externos de pago.
-- **Optimización 2D guillotine** — algoritmo port de [OpenCutList](https://github.com/lairdubois/fontobene-go) con estrategia BFD + SPLIT_MAXIMIZE_AREA para minimizar desperdicios.
-- **Servidor MCP embebido** — el asistente controla FreeCAD directamente mediante herramientas MCP (Model Context Protocol) en SSE port 7891. También accesible desde Claude Code u otro cliente MCP externo.
-- **Gestión de retales** — registra piezas sobrantes, puntúa por área, persiste entre sesiones, las reutiliza en el siguiente plan de corte.
-- **Diagrama visual** — panel Qt con QPainter que muestra cada tablero con las piezas coloreadas.
-- **Exportación** — CSV, JSON y PDF con diagrama.
+- **AI design assistant** — chat with Ollama or any OpenAI-compatible API (DeepSeek, Groq, LM Studio, etc.). No dependency on Claude or paid external services.
+- **2D guillotine bin packing** — algorithm ported from [OpenCutList](https://github.com/lairdubois/fontobene-go) using BFD + SPLIT_MAXIMIZE_AREA strategy to minimize waste.
+- **Embedded MCP server** — the assistant controls FreeCAD directly via MCP (Model Context Protocol) tools over SSE on port 7891. Also accessible from Claude Code or any external MCP client.
+- **Offcut management** — register leftover pieces, score by area, persist between sessions, reuse in the next cut plan.
+- **Visual diagram** — Qt panel with QPainter drawing each sheet with color-coded pieces.
+- **Export** — CSV, JSON and PDF with diagrams.
 
-## Requisitos
+## Requirements
 
-| Componente | Versión mínima |
-|-----------|---------------|
+| Component | Minimum version |
+|-----------|----------------|
 | FreeCAD | 0.21 |
 | Python | 3.9 |
 | mcp[cli] | 1.0 |
 | reportlab | 3.6 |
 
-Para el asistente IA se necesita **Ollama** corriendo localmente (o cualquier API compatible con OpenAI).
+For the AI assistant you need **Ollama** running locally, or any OpenAI-compatible API (DeepSeek, Groq, LM Studio…).
 
-## Instalación
+## Installation
 
-### Desde FreeCAD Addon Manager
+### From FreeCAD Addon Manager
 
-1. En FreeCAD: **Herramientas → Addon Manager**
-2. Buscar "WoodOptimizer"
-3. Instalar y reiniciar FreeCAD
+1. In FreeCAD: **Tools → Addon Manager**
+2. Search for "WoodOptimizer"
+3. Install and restart FreeCAD
 
 ### Manual
 
 ```bash
-# Clonar en el directorio de addons de FreeCAD
 cd ~/.local/share/FreeCAD/Mod/
-git clone https://github.com/woodoptimizer/wood-optimizer-wb WoodOptimizer
+git clone https://github.com/sebastianaf/WoodOptimizer.git
 pip install "mcp[cli]>=1.0" reportlab
+# Restart FreeCAD
 ```
 
-## Uso rápido
+## Quick start
 
-1. Cambiar al workbench **WoodOptimizer** en FreeCAD
-2. Clic en **Abrir panel** para mostrar el dock lateral
-3. Pestaña **Asistente**: configurar proveedor (Ollama / OpenAI-compat), URL y modelo
-4. Escribir: *"Diseñame un armario de 60×240 con 3 entrepaños y cajón inferior"*
-5. El asistente crea las piezas en el documento y calcula el plan de corte
-6. Pestaña **Plan de corte**: diagrama visual + botón **Exportar PDF**
-7. Pestaña **Retales**: importar sobrantes del plan para reutilizarlos la próxima vez
+1. Switch to the **WoodOptimizer** workbench in FreeCAD
+2. Click **Open panel** to show the side dock
+3. Go to the **Settings** tab — choose your provider (Ollama / DeepSeek / OpenAI-compat), set the URL, model and API key, then click **Save**
+4. Switch to the **Assistant** tab and type: *"Design a 60×240 cm wardrobe with 3 shelves and a bottom drawer"*
+5. The assistant creates the parts in the document and calculates the cut plan
+6. **Cut plan** tab: visual diagram + **Export PDF** button
+7. **Offcuts** tab: import leftovers from the plan to reuse them next time
 
-## Arquitectura
+### DeepSeek setup
+
+| Field | Value |
+|-------|-------|
+| Provider | `deepseek` |
+| URL | `https://api.deepseek.com/v1` |
+| Model | `deepseek-chat` |
+| API Key | your key from `platform.deepseek.com` |
+
+### Ollama (local)
+
+```bash
+ollama pull qwen2.5-coder:32b
+# or any other model
+```
+Provider: `ollama` · URL: `http://localhost:11434`
+
+## Architecture
 
 ```
-InitGui.py                   ← entry point FreeCAD
+InitGui.py                   ← FreeCAD entry point
 WoodOptimizer/
-  core/                      ← lógica pura Python (sin FreeCAD, testeable en CI)
-    models.py                    dataclasses: Part, Sheet, CutPlan, Remnant
-    bin_packing.py               guillotine 2D BFD (port OpenCutList)
-    geometry.py                  extracción de bounding boxes de FreeCAD
-    remnant_manager.py           ciclo de vida de retales + persistencia JSON
+  core/                      ← pure Python logic (no FreeCAD, CI-testable)
+    models.py                    Part, Sheet, CutPlan, Remnant dataclasses
+    bin_packing.py               2D guillotine BFD (OpenCutList port)
+    geometry.py                  FreeCAD bounding-box extraction
+    remnant_manager.py           offcut lifecycle + JSON persistence
   mcp/
-    server.py                    FastMCP SSE en puerto 7891
-    handlers.py                  9 herramientas MCP
-    state.py                     estado global del workbench
+    server.py                    FastMCP SSE on port 7891
+    handlers.py                  9 MCP tools
+    state.py                     global workbench state
   llm/
-    client.py                    loop tool_call → FreeCAD → respuesta
-    providers/ollama.py          POST /api/chat (sin dependencias externas)
+    client.py                    tool_call → FreeCAD → response loop
+    providers/ollama.py          POST /api/chat (no external deps)
     providers/openai_compat.py   POST /v1/chat/completions
-    config.py                    config en FreeCAD prefs / ~/.woodoptimizer_config.json
+    config.py                    saved in FreeCAD prefs / ~/.woodoptimizer_config.json
   ui/
-    panel_main.py                QDockWidget con pestañas
-    panel_chat.py                chat Qt + selector proveedor/modelo
-    panel_cutplan.py             diagrama QPainter + exportar PDF
-    panel_remnants.py            tabla de retales + importar desde plan
+    panel_main.py                QDockWidget with tabs
+    panel_chat.py                chat + Stop/Clear/multiline input
+    panel_cutplan.py             QPainter diagram + Export PDF
+    panel_remnants.py            offcuts table + import from plan
+    panel_settings.py            provider/model/key configuration
   commands/
     cmd_open_panel.py            WO_OpenPanel
     cmd_optimize.py              WO_Optimize
@@ -80,15 +98,15 @@ WoodOptimizer/
   export/
     csv_exporter.py
     json_exporter.py
-    pdf_exporter.py              diagrama con reportlab
+    pdf_exporter.py              multi-page PDF with reportlab
 ```
 
-## MCP como cliente externo
+## Using as an external MCP client
 
-El servidor MCP arranca automáticamente al activar el workbench. Para usarlo desde Claude Code u otro cliente:
+The MCP server starts automatically when the workbench is activated. To use it from Claude Code or any other MCP client:
 
 ```json
-// .mcp.json en la raíz del proyecto
+// .mcp.json at the project root
 {
   "mcpServers": {
     "freecad-woodoptimizer": {
@@ -99,21 +117,30 @@ El servidor MCP arranca automáticamente al activar el workbench. Para usarlo de
 }
 ```
 
-Herramientas disponibles: `get_parts`, `create_part`, `update_part`, `delete_part`, `optimize_cuts`, `get_cut_plan`, `get_remnants`, `add_remnant`, `export_cutlist`.
+Available tools: `get_parts`, `create_part`, `update_part`, `delete_part`, `optimize_cuts`, `get_cut_plan`, `get_remnants`, `add_remnant`, `export_cutlist`.
 
-## Desarrollo y tests
+## Development & tests
 
 ```bash
-# Instalar dependencias de desarrollo
 pip install pytest
 
-# Ejecutar suite completa (99 tests, no requiere FreeCAD)
+# Full test suite (111 tests, no FreeCAD required)
 python3 -m pytest tests/ -v
 
-# Demo de bin packing con diagrama ASCII
+# Bin packing demo with ASCII diagram
 python3 demo_closet.py
 ```
 
-## Licencia
+## Publishing to the FreeCAD Addon Manager
 
-LGPL-2.1-or-later — igual que FreeCAD.
+1. Make sure your repo is public and has `package.xml` at the root (already included).
+2. Fork `https://github.com/FreeCAD/FreeCAD-addons`.
+3. Add to `package_list.json`:
+   ```json
+   { "name": "WoodOptimizer", "url": "https://github.com/sebastianaf/WoodOptimizer", "branch": "main" }
+   ```
+4. Open a PR with title: `Add WoodOptimizer addon`.
+
+## License
+
+LGPL-2.1-or-later — same as FreeCAD.
