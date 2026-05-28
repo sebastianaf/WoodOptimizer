@@ -2,8 +2,15 @@
 Chat panel — AI design assistant.
 Controls: Send, Stop, Clear, multiline input.
 Config lives in the Settings tab; this panel just reads it on every tab switch.
+
+Thread-safety: the LLM worker runs in a QThread (HTTP calls are fine there).
+FreeCAD document mutations (create_part, etc.) are marshaled back to the main
+thread via _ToolBridge before execution, then the result is returned to the
+worker through a threading.Event so the stream can continue.
 """
 from __future__ import annotations
+import json
+import threading
 
 try:
     from PySide6 import QtCore, QtGui, QtWidgets
@@ -13,6 +20,45 @@ except ImportError:
     from PySide2.QtCore import Qt, Signal, QThread
 
 
+# ─── Main-thread tool executor (thread-safe bridge) ───────────────────────────
+
+class _ToolBridge(QtCore.QObject):
+    """
+    Runs tool calls on the Qt main thread.
+
+    The worker thread calls bridge.execute(name, args) which:
+      1. Emits _request signal  → picked up by the main thread (QueuedConnection)
+      2. Main thread runs the tool and stores the result
+      3. Main thread sets a threading.Event
+      4. Worker thread wakes up and reads the result
+
+    This guarantees FreeCAD document access always happens on the main thread.
+    """
+    _request = Signal(str, str)   # tool_name, args_json
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._result: str = ""
+        self._event = threading.Event()
+        # QueuedConnection routes the slot to the thread that owns this object
+        # (the main thread, since _ToolBridge is created there).
+        self._request.connect(self._run_on_main, Qt.QueuedConnection)
+
+    def _run_on_main(self, name: str, args_json: str):
+        """Slot — always executed on the main thread."""
+        from ..llm.client import execute_tool
+        self._result = execute_tool(name, json.loads(args_json))
+        self._event.set()
+
+    def execute(self, name: str, arguments: dict) -> str:
+        """Called from any thread; blocks until the main thread returns a result."""
+        self._event.clear()
+        self._request.emit(name, json.dumps(arguments))
+        if not self._event.wait(timeout=60):
+            return json.dumps({"error": f"Tool '{name}' timed out after 60 s"})
+        return self._result
+
+
 # ─── Worker ───────────────────────────────────────────────────────────────────
 
 class _LLMWorker(QThread):
@@ -20,11 +66,13 @@ class _LLMWorker(QThread):
     tool_executed = Signal(str)
     error         = Signal(str)
 
-    def __init__(self, client, message: str, history: list[dict], parent=None):
+    def __init__(self, client, message: str, history: list[dict],
+                 bridge: _ToolBridge, parent=None):
         super().__init__(parent)
         self._client  = client
         self._message = message
         self._history = history
+        self._bridge  = bridge
         self._cancelled = False
 
     def cancel(self):
@@ -36,7 +84,10 @@ class _LLMWorker(QThread):
                 self.tool_executed.emit(name)
 
             for fragment in self._client.stream_chat(
-                self._message, self._history, on_tool_call=on_tool
+                self._message,
+                self._history,
+                on_tool_call=on_tool,
+                tool_executor=self._bridge.execute,   # ← main-thread safe
             ):
                 if self._cancelled:
                     break
@@ -52,11 +103,10 @@ class ChatPanel(QtWidgets.QWidget):
     Assistant chat panel.
 
     Layout:
-    ┌─ model indicator ──────────────────── [Clear] ┐
-    ├───────────────────────────────────────────────┤
+    ┌───────────────────────────────────────────────┐
     │  chat history (read-only)                     │
     ├───────────────────────────────────────────────┤
-    │  [multiline input]              [Stop] [Send] │
+    │  [multiline input]      [Clear] [Stop] [Send] │
     │  status bar                                   │
     └───────────────────────────────────────────────┘
     """
@@ -68,6 +118,8 @@ class ChatPanel(QtWidgets.QWidget):
         self._client = None
         self._pending_user_msg = ""
         self._current_assistant_text = ""
+        # Bridge lives on the main thread (created here, in the main thread)
+        self._bridge = _ToolBridge(parent=self)
         self._build_ui()
         self.reload_client()
 
@@ -78,7 +130,6 @@ class ChatPanel(QtWidgets.QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(4)
 
-        # ── Chat display ──────────────────────────────────────────────────────
         self._chat_display = QtWidgets.QTextEdit()
         self._chat_display.setReadOnly(True)
         font = QtGui.QFont("Monospace", 10)
@@ -86,18 +137,15 @@ class ChatPanel(QtWidgets.QWidget):
         self._chat_display.setFont(font)
         root.addWidget(self._chat_display, stretch=1)
 
-        # ── Input area ────────────────────────────────────────────────────────
         self._txt_input = QtWidgets.QTextEdit()
         self._txt_input.setPlaceholderText(
             "e.g.: design a 60×240 closet with 3 shelves and bottom drawer"
         )
         self._txt_input.setMaximumHeight(80)
         self._txt_input.setAcceptRichText(False)
-        # Ctrl+Enter or Shift+Enter → newline; Enter alone → send
         self._txt_input.installEventFilter(self)
         root.addWidget(self._txt_input)
 
-        # ── Button row ────────────────────────────────────────────────────────
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
 
@@ -121,7 +169,6 @@ class ChatPanel(QtWidgets.QWidget):
 
         root.addLayout(btn_row)
 
-        # ── Status bar ────────────────────────────────────────────────────────
         self._status = QtWidgets.QLabel("Ready.")
         self._status.setStyleSheet("color: gray; font-size: 10px;")
         root.addWidget(self._status)
@@ -131,9 +178,8 @@ class ChatPanel(QtWidgets.QWidget):
     def eventFilter(self, obj, event):
         if obj is self._txt_input and event.type() == QtCore.QEvent.KeyPress:
             if event.key() in (Qt.Key_Return, Qt.Key_Enter):
-                mods = event.modifiers()
-                if mods & (Qt.ShiftModifier | Qt.ControlModifier):
-                    return False  # let QTextEdit insert newline
+                if event.modifiers() & (Qt.ShiftModifier | Qt.ControlModifier):
+                    return False
                 self._send()
                 return True
         return super().eventFilter(obj, event)
@@ -174,7 +220,10 @@ class ChatPanel(QtWidgets.QWidget):
         self._current_assistant_text = ""
         self._chat_display.append("\n<b>Assistant:</b> ")
 
-        self._worker = _LLMWorker(self._client, text, self._history, parent=self)
+        self._worker = _LLMWorker(
+            self._client, text, self._history,
+            bridge=self._bridge, parent=self,
+        )
         self._worker.chunk_ready.connect(self._on_chunk)
         self._worker.tool_executed.connect(self._on_tool)
         self._worker.error.connect(self._on_error)
@@ -214,7 +263,6 @@ class ChatPanel(QtWidgets.QWidget):
         self._chat_display.ensureCursorVisible()
 
     def _on_worker_done(self):
-        # Save user message captured at send time (input was already cleared)
         self._history.append({"role": "user", "content": self._pending_user_msg})
         self._history.append({"role": "assistant", "content": self._current_assistant_text})
         self._worker = None

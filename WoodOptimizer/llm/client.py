@@ -155,6 +155,7 @@ class LLMClient:
         message: str,
         history: list[dict],
         on_tool_call: Callable[[str, dict, str], None] | None = None,
+        tool_executor: Callable[[str, dict], str] | None = None,
     ) -> Iterator[str]:
         """
         Versión generadora de chat() — emite fragmentos de texto a medida que
@@ -197,9 +198,10 @@ class LLMClient:
             }
             messages.append(assistant_msg)
 
+            _run_tool = tool_executor or execute_tool
             for tc in response.tool_calls:
                 yield f"\n⚙ `{tc.name}`..."
-                result_json = execute_tool(tc.name, tc.arguments)
+                result_json = _run_tool(tc.name, tc.arguments)
 
                 if on_tool_call:
                     on_tool_call(tc.name, tc.arguments, result_json)
