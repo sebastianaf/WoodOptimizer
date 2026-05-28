@@ -26,8 +26,7 @@ class WoodOptimizerWorkbench(Gui.Workbench):
 
     MenuText = "WoodOptimizer"
     ToolTip  = "Optimizador de corte de madera con asistente IA"
-    Icon     = os.path.join(_icon_path, "workbench.svg") if os.path.exists(
-                    os.path.join(_icon_path, "workbench.svg")) else ""
+    Icon     = ""
 
     def Initialize(self):
         """Llamado una sola vez al registrar el workbench."""
@@ -79,5 +78,9 @@ class WoodOptimizerWorkbench(Gui.Workbench):
         except Exception as e:
             FreeCAD.Console.PrintWarning(f"[WoodOptimizer] Error al arrancar MCP: {e}\n")
 
+
+_icon_file = os.path.join(_wb_path, "WoodOptimizer", "icons", "workbench.svg")
+if os.path.exists(_icon_file):
+    WoodOptimizerWorkbench.Icon = _icon_file
 
 Gui.addWorkbench(WoodOptimizerWorkbench())
