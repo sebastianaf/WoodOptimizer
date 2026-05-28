@@ -30,6 +30,9 @@ class WoodOptimizerWorkbench(Gui.Workbench):
     def Initialize(self):
         """Llamado una sola vez al registrar el workbench."""
         from WoodOptimizer.commands import cmd_open_panel, cmd_optimize, cmd_export
+        cmd_open_panel()
+        cmd_optimize()
+        cmd_export()
 
         self.appendToolbar("WoodOptimizer", [
             "WO_OpenPanel",
